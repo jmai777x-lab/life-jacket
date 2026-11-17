@@ -30,13 +30,16 @@ No build step, no install, no server.
 4. The footer "Reset demo data" button restores the untouched
    sample inbox.
 
-Optional: to turn on the live cloud explanation, create a Firebase
-project, enable AI Logic in it, register a web app, and paste the
-web app config values into `firebase-config.js` (the file explains
-the shape). Reload the page and the cloud step goes live. Without a
-config, the app runs its cloud step as a clearly labeled local
-simulation, and the on-screen label says so. Nothing in the config
-is a secret; Firebase web config values are project identifiers.
+The live cloud explanation is connected: `firebase-config.js`
+carries the Life Jacket Firebase project's web app config (project
+identifiers, not secrets), AI Logic is enabled on the free Gemini
+Developer API plan, and the explanation step runs live against
+Gemini 3.8 Flash. If the config is removed, or the cloud cannot be
+reached, the app runs its cloud step as a clearly labeled local
+simulation instead, and the on-screen label says so. To run your
+own copy against your own project instead, create a Firebase
+project, enable AI Logic in it, register a web app, and paste its
+config values into `firebase-config.js`.
 
 ## The hybrid design
 
@@ -57,9 +60,9 @@ Life Jacket is built hybrid on purpose, in three layers:
 3. Cloud last, and only with permission. The deep explanation is
    written by Gemini through Firebase AI Logic, and it only ever
    receives the cleaned text the user approved in the payload gate
-   (see the privacy design below). Until a Firebase project is
-   connected, that step runs as a labeled local simulation built
-   from the extracted facts.
+   (see the privacy design below). If the cloud cannot be
+   reached, that step falls back to a labeled local simulation
+   built from the extracted facts, and the screen says so.
 
 ## The privacy design
 
@@ -93,8 +96,8 @@ Life Jacket is built hybrid on purpose, in three layers:
   project is configured, the labeled local simulation otherwise.
 - `app.js` - the app shell, the three views (Inbox, Shelves,
   Calendar), the document pipeline, and the calendar export.
-- `firebase-config.js` - the Firebase config holder. Ships empty
-  (null) on purpose.
+- `firebase-config.js` - the Firebase web app config for the
+  Life Jacket project (public project identifiers, not secrets).
 - `BUILD-LOG.md` - the build log, including design rulings and
   what is simulated and why.
 - `TEXT-CHANNEL-REPORT.md` - the text message intake channel:

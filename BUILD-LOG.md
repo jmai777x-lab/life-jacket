@@ -224,3 +224,39 @@ VERIFICATION-REPORT-2026-11-16.md in this folder.
   creation and sign-in clicks, then the config paste, live-path
   verification, GitHub repo creation from the staged copy, the
   Devpost paste, and the demo recording.
+
+## Round 3 - live wiring (Nov 16, 2026, evening session with the founder)
+
+- Firebase project created by the founder: "Life Jacket",
+  project ID life-jacket-f6c3e, on the free Spark plan, Google
+  Analytics off. Web app "Life Jacket Web" registered; its config
+  was pasted into firebase-config.js in both the working copy and
+  the public repo copy.
+- AI Logic enabled on the Gemini Developer API (the free path).
+  The billing-required Agent Platform path was not taken.
+- App Check: the setup wizard enforced App Check for AI Logic
+  while the web app was unregistered, which blocked the app's own
+  calls. On the founder's decision, AI Logic enforcement was set
+  to monitoring (unenforced) and the project's API key was locked
+  to the app's own web addresses (HTTP referrers: the GitHub Pages
+  site, the Firebase app domain, and a local test address).
+  Google states App Check will auto-enforce AI Logic requests
+  starting January 21, 2027; registering App Check with reCAPTCHA
+  is the recorded production step before that date.
+- Public repo created: github.com/jmai777x-lab/life-jacket, with
+  GitHub Pages serving the app at
+  https://jmai777x-lab.github.io/life-jacket/
+- MODEL DEFECT FOUND AND FIXED the same night: the live call
+  failed silently into the labeled fallback. Reproduced outside
+  the browser with the real SDK (firebase 12.11.0, Node): the API
+  answered 404, "This model models/gemini-2.5-flash is no longer
+  available to new users." gemini-2.5-flash is closed to new
+  projects, and this project was created that day. cloud.js now
+  names gemini-3.8-flash; the same SDK reproduction with the new
+  model answered successfully against the live project, and the
+  fix was committed to the repo and redeployed by Pages.
+- Polish in the same pass: received dates in the inbox and the
+  document view now render in long form ("December 4, 2026")
+  instead of raw ISO dates.
+- Still open after this session: the Devpost paste and the demo
+  video recording.

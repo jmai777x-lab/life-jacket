@@ -109,6 +109,12 @@
       .replace(/"/g, "&quot;");
   }
 
+  // "2026-12-04" shown the way a person says it: "December 4, 2026".
+  function fmtReceived(iso) {
+    var d = new Date(iso + "T12:00:00");
+    return isNaN(d.getTime()) ? iso : D.fmtLong(d);
+  }
+
   function daysRemaining(iso) {
     var t = new Date(); t.setHours(0, 0, 0, 0);
     var d = new Date(iso + "T00:00:00");
@@ -214,7 +220,7 @@
     docs.forEach(function (doc) {
       html += '<div class="card doc-card" data-action="open-doc" data-id="' + doc.id + '">' +
         '<div class="meta"><span class="from">' + esc(doc.sender) + '</span>' +
-        '<span>Received ' + esc(doc.receivedISO) + '</span>' +
+        '<span>Received ' + esc(fmtReceived(doc.receivedISO)) + '</span>' +
         (doc.channel ? '<span class="chip">' + esc(doc.channel) + '</span>' : '') +
         '<span class="chip shelf">' + esc(docShelf(doc)) + '</span>' + statusChip(doc) + '</div>' +
         '<h3>' + esc(doc.subject) + '</h3></div>';
@@ -256,7 +262,7 @@
     var eff = effectiveDoc(doc);
     var html = '<p><button class="btn secondary" data-action="nav" data-view="inbox">Back to inbox</button></p>';
     html += '<div class="card"><div class="meta" style="display:flex;gap:10px;flex-wrap:wrap;color:var(--ink-soft);font-size:16px;margin-bottom:6px;">' +
-      '<span><strong>' + esc(doc.sender) + '</strong></span><span>Received ' + esc(doc.receivedISO) + '</span>' +
+      '<span><strong>' + esc(doc.sender) + '</strong></span><span>Received ' + esc(fmtReceived(doc.receivedISO)) + '</span>' +
       (doc.channel ? '<span class="chip">' + esc(doc.channel) + '</span>' : '') +
       '<span class="chip shelf">' + esc(eff.shelf) + '</span>' + statusChip(doc) + '</div>' +
       '<h2 class="view-title" style="font-size:29px;">' + esc(doc.subject) + '</h2>' +
