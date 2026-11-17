@@ -214,7 +214,7 @@
     var html = '<h2 class="view-title">Your inbox</h2>' +
       '<p class="view-sub">Everything that arrived, waiting to be kept. Open one and Life Jacket reads it here on this device first.</p>';
     html += '<div class="card intake"><h3 style="margin-top:0;font-size:24px;">Add from a text</h3>' +
-      '<p class="step-note" style="color:var(--ink-soft);margin:0 0 12px;">Not everything arrives by email. Some receipts come as a text message. On your phone, open the text, press and hold to copy it, then paste the whole message here. If it came as a screenshot, type or paste what the screenshot says. It is read on this device first, exactly like everything else.</p>' +
+      '<p class="step-note" style="color:var(--ink-soft);margin:0 0 12px;">Not everything arrives by email. Some receipts come as a text. On your phone, open the text, press and hold to copy it, then paste the whole message here. Got a screenshot instead? Type or paste what it says. It gets read on this device first, same as everything else.</p>' +
       '<textarea id="text-intake" rows="6" placeholder="Paste the text message here"></textarea>' +
       '<p style="margin:12px 0 0;"><button class="btn" data-action="add-text">Add it to the inbox</button></p></div>';
     docs.forEach(function (doc) {
@@ -393,7 +393,7 @@
     var entries = calendarEntries();
     var soon = entries.filter(function (e) { return daysRemaining(e.dateISO) <= 60; });
     var html = '<h2 class="view-title">Your calendar</h2>' +
-      '<p class="view-sub">Every consequential date from every filed document, in one place.</p>';
+      '<p class="view-sub">Every date that matters from the documents you have filed, in one place.</p>';
     html += '<h3 style="font-size:26px;">Reminders: what is coming due</h3>';
     if (!entries.length) {
       html += '<p class="shelf-empty">Nothing on the calendar yet. File a document and its dates land here.</p>';

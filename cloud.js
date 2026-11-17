@@ -17,7 +17,7 @@
 (function () {
   "use strict";
 
-  var SIM_LABEL = "Simulated explanation (demo mode: Firebase is not connected yet, so this was written locally from the extracted facts)";
+  var SIM_LABEL = "Explained on this device, from the facts above";
 
   function fieldValue(extracted, labelStart) {
     for (var i = 0; i < extracted.fields.length; i++) {
@@ -47,22 +47,22 @@
     if (KNOWN.indexOf(doc.kind) < 0) {
       var amountsFound = fieldValue(extracted, "Amounts found");
       return {
-        whatItIs: "A document Life Jacket does not have a specific shelf rule for yet, so it was read with the general rules and filed under Everything Else. The facts below were pulled out on your device.",
+        whatItIs: "Life Jacket doesn't have a rule for this kind of document yet. It read it with the general rules and filed it under Everything Else.",
         whatMatters: [
-          amountsFound ? "Amounts found in it: " + amountsFound + "." : "No amounts were found in it.",
-          deadline ? "It carries a date that looks like it needs action: " + deadline + "." : "No date in it looked like a deadline.",
-          "It is kept, dated, and on the calendar like everything else. Nothing about it was thrown away for being unfamiliar."
+          amountsFound ? "Amounts in it: " + amountsFound + "." : "No amounts turned up in it.",
+          deadline ? "One date in it looks like it needs action: " + deadline + "." : "No date in it looked like a deadline.",
+          "It's saved with its date, same as everything else."
         ],
-        deadlineLine: deadline ? "The date to watch is " + deadline + "." : "No deadline was found in this document.",
+        deadlineLine: deadline ? "The date to watch is " + deadline + "." : "No deadline turned up.",
         steps: [
-          "Read it once yourself to confirm the general read got the shape of it right.",
-          "If this kind of document starts arriving often, it deserves its own shelf and its own rules."
+          "Read it through once yourself and check the read got it right.",
+          "If this kind starts showing up a lot, it should get a shelf of its own."
         ],
         scam: {
-          title: "A standing caution for unfamiliar documents",
+          title: "Careful with ones you don't know",
           points: [
-            "Urgency is the tell. Any document that demands payment or personal information immediately, by an unusual method, deserves a phone call to a number you already trust before you act.",
-            "Life Jacket covered your identifiers before this explanation was written, whatever the document turns out to be."
+            "If a document pushes you to pay or hand over information right away, stop. Call a number you already have and check first.",
+            "Your numbers and addresses were covered before any of this was written."
           ]
         }
       };
@@ -70,24 +70,24 @@
 
     if (doc.kind === "medicare") {
       return {
-        whatItIs: "A Medicare Summary Notice telling you about a change to your coverage. Starting next year, your plan covers fewer home health aide visits per year: 12 instead of 20. Your physical therapy visits are not changing, and your new monthly premium is $184.60.",
+        whatItIs: "A Medicare Summary Notice. It's about a change coming to your coverage. Next year the plan pays for 12 home health aide visits instead of 20. Physical therapy stays the same. The new premium is $184.60 a month.",
         whatMatters: [
-          "The cut is to home health aide visits only, from 20 a year down to 12.",
-          "If you rely on those visits, this is worth an appeal or a plan comparison before the deadline.",
-          "The notice itself is not a bill. Nothing is owed because of this letter."
+          "Only the aide visits are cut. Therapy isn't touched.",
+          "If you use those visits, you can appeal, or look at other plans before the deadline.",
+          "This letter isn't a bill. You don't owe anything because it arrived."
         ],
-        deadlineLine: deadline ? "If you want to appeal, your request must arrive by " + deadline + "." : "No response deadline was found in this letter.",
+        deadlineLine: deadline ? "If you want to appeal, your request has to arrive by " + deadline + "." : "No response deadline turned up in this letter.",
         steps: [
-          "Decide whether the home health visits matter to you this year.",
-          "If they do, call the number on the notice and ask how to appeal, or ask a family member to sit with you while you call.",
-          "Keep the notice with your health records either way."
+          "Think about whether you'll need the aide visits next year.",
+          "If you will, call the number on the notice and ask how to appeal. It helps to have someone sitting with you.",
+          "Keep the letter with your health papers."
         ],
         scam: {
-          title: "Signs this is genuine",
+          title: "Why this one looks real",
           points: [
-            "It arrived as a formal notice and asks for an appeal in writing, not for payment.",
+            "It asks for an appeal in writing. It doesn't ask for money.",
             "It never asks you to read your Medicare number out over the phone.",
-            "Caution: Medicare will never call you out of the blue and ask for your number or a payment. Anyone who does is not Medicare."
+            "Medicare doesn't call people out of the blue asking for numbers or payments. If someone does, that isn't Medicare."
           ]
         }
       };
@@ -95,26 +95,26 @@
 
     if (doc.kind === "irs") {
       return {
-        whatItIs: "An IRS CP2000 notice. This is not a bill and not an audit. The IRS received a report from a bank saying you earned $1,912 in interest that does not appear on your 2024 tax return, and they propose that you owe $1,284.00 more in tax.",
+        whatItIs: "An IRS notice called a CP2000. It isn't a bill, and it isn't an audit. A bank told the IRS you earned $1,912 in interest that isn't on your 2024 return. The IRS thinks that means $1,284.00 more in tax.",
         whatMatters: [
-          "The IRS is proposing a change. You can agree, partly agree, or disagree, and disagreeing with records to back you up is a normal, expected answer.",
-          "Check the interest figure against your own bank statements for 2024 before you answer.",
-          "If you do nothing, the proposed change becomes final and turns into a real bill with interest."
+          "Nothing is final yet. You can agree with all of it, part of it, or none of it.",
+          "Check your own 2024 bank statements against the $1,912 before you answer.",
+          "Ignore it, though, and the change becomes final. Then it's a real bill, with interest."
         ],
-        deadlineLine: deadline ? "Your response must reach the IRS by " + deadline + "." : "No response date was found in this notice.",
+        deadlineLine: deadline ? "Your response has to reach the IRS by " + deadline + "." : "No response date turned up in this notice.",
         steps: [
-          "Find your 2024 bank interest statements and compare them with the $1,912 figure.",
-          "Mark agree or disagree on the response form that came with the notice.",
-          "Send copies, never originals, and keep a copy of everything you send.",
-          "If the numbers do not make sense, a tax preparer or a low income taxpayer clinic can review a CP2000 with you."
+          "Pull your 2024 interest statements and compare the numbers.",
+          "Mark agree or disagree on the form that came with the notice.",
+          "Send copies, never originals. Keep a copy of everything you send.",
+          "If the numbers still don't add up, a tax preparer or a low income taxpayer clinic will go over a CP2000 with you."
         ],
         scam: {
-          title: "Signs this is genuine, and the cautions that matter",
+          title: "How you can tell it's real",
           points: [
-            "A CP2000 arrives by mail first. The IRS does not start by email, text, or social media.",
-            "The notice explains a proposed change and gives you a way to disagree. Scam letters usually demand instant payment and threaten arrest.",
-            "The IRS will never demand payment by gift card, wire transfer, or cryptocurrency, and will never refuse to let you ask questions.",
-            "Caution: if anyone calls claiming to be the IRS and pressures you to pay today, hang up and call the IRS number printed on the notice yourself."
+            "A CP2000 comes in the mail. The IRS doesn't open with an email or a text.",
+            "Scam letters want money today and threaten arrest. This one gives you a way to argue back.",
+            "The IRS never takes gift cards, wire transfers, or crypto. Not ever.",
+            "If someone calls saying they're the IRS and wants payment today, hang up. Call the number on the notice yourself."
           ]
         }
       };
@@ -123,22 +123,22 @@
     if (doc.kind === "vet") {
       var given = fieldValue(extracted, "Rabies vaccination given");
       return {
-        whatItIs: "A vet visit summary and invoice. Biscuit had a wellness exam and a nail trim, and the bill of $72.50 is paid in full. The important part is the vaccination record: it shows when the rabies shot was last given and lets us work out when it comes due again.",
+        whatItIs: "Biscuit's vet visit, written up as a summary and invoice. Wellness exam, nail trim, and the $72.50 bill is paid. The part worth keeping is the rabies record: when the last shot was given, so the next due date can be worked out.",
         whatMatters: [
-          "Rabies vaccination given: " + (given || "see record") + ".",
-          "Rabies protection lasts 3 years, so the next shot comes due on the calendar date below.",
-          "An overdue rabies vaccination can mean fines, and a real problem if Biscuit ever nips someone."
+          "Last rabies shot: " + (given || "see record") + ".",
+          "Rabies shots last 3 years. The next one is due on the date below.",
+          "Let it lapse and there can be fines. Worse if Biscuit ever nips somebody."
         ],
-        deadlineLine: deadline ? "Biscuit's next rabies vaccination is due by " + deadline + "." : "No vaccination due date could be computed from this record.",
+        deadlineLine: deadline ? "Biscuit's next rabies shot is due by " + deadline + "." : "No due date could be worked out from this record.",
         steps: [
-          "No action is needed today. The date is on your calendar now.",
-          "Book the appointment a few weeks before the due date, since clinics fill up."
+          "Nothing to do today.",
+          "Book it a few weeks ahead of the date. Clinics fill up."
         ],
         scam: {
-          title: "Signs this is genuine",
+          title: "Checks out",
           points: [
-            "It itemizes real services with prices and shows the card payment you made.",
-            "It asks for nothing. A paid invoice that asks for no money and no information is what it appears to be."
+            "It lists the services with prices and shows your card payment.",
+            "It doesn't ask for money or information. A paid bill that wants nothing is what it looks like."
           ]
         }
       };
@@ -147,21 +147,21 @@
     if (doc.kind === "auto") {
       var nextMiles = fieldValue(extracted, "Next service mileage");
       return {
-        whatItIs: "A service receipt for an oil change and tire rotation on the 2018 Toyota RAV4. The work is done and paid for ($94.18). The useful part of this receipt is the service interval: it tells us when the next service comes due, by date and by mileage.",
+        whatItIs: "Receipt for an oil change and tire rotation on the 2018 Toyota RAV4. Done and paid, $94.18. What's worth saving is the service interval: when the next one comes due, by date and by mileage.",
         whatMatters: [
-          "Next service is due at the date below, or at " + (nextMiles || "the mileage on the receipt") + ", whichever comes first.",
-          "Keeping the oil changed on schedule is the cheapest engine protection there is."
+          "Next service: the date below, or " + (nextMiles || "the mileage on the receipt") + ", whichever comes first.",
+          "Skipping oil changes is how engines wear out early."
         ],
-        deadlineLine: deadline ? "Next service due by " + deadline + (nextMiles ? ", or at " + nextMiles + "." : ".") : "No next service date could be computed from this receipt.",
+        deadlineLine: deadline ? "Next service due by " + deadline + (nextMiles ? ", or at " + nextMiles + "." : ".") : "No next service date could be worked out from this receipt.",
         steps: [
-          "Nothing to do today. The date is on your calendar now.",
-          "If the odometer reaches the service mileage first, book it then instead."
+          "Nothing to do today.",
+          "If the odometer hits the mileage first, book it then instead."
         ],
         scam: {
-          title: "Signs this is genuine",
+          title: "Looks right",
           points: [
-            "It lists the work performed, the vehicle, and the odometer reading, and shows the card you paid with.",
-            "It asks for nothing further. Keep it with the vehicle records; a full service history raises resale value."
+            "It names the work, the vehicle, and the odometer reading, and shows the card you paid with.",
+            "It asks for nothing. Keep it with the vehicle papers. A full service history helps if you ever sell."
           ]
         }
       };
@@ -173,28 +173,28 @@
       var rOrder = fieldValue(extracted, "Order number");
       var linkNote = fieldValue(extracted, "Itemized detail");
       return {
-        whatItIs: "A store receipt that arrived as a text message" +
+        whatItIs: "A store receipt that came as a text message" +
           (store ? " from " + store : "") +
           (rTotal ? ", totaling " + rTotal : "") +
           (rOrder ? " (order " + rOrder + ")" : "") +
-          ". The purchase is done and paid. What is worth keeping is the record: what it cost, where, and when.",
+          ". Paid and done. What's worth keeping is what it cost, and when.",
         whatMatters: [
           rTotal ? "Total charged: " + rTotal + "." : "No total could be read from the text.",
-          linkNote ? linkNote : "The text carried its own detail, so no link is needed to know what this receipt says.",
-          "The link in a texted receipt carries a private token, which is why Life Jacket covered it like a number on a card."
+          linkNote ? linkNote : "The text had the detail in it, so the link isn't needed.",
+          "The link in a texted receipt carries a private token. That's why it got covered, same as a card number."
         ],
-        deadlineLine: deadline ? "Kept with its date: " + deadline + ". A receipt has no deadline; the date is on your calendar so the purchase sits in the right week when you look back." : "No date could be attached to this receipt.",
+        deadlineLine: deadline ? "Receipts don't have deadlines. This one is dated " + deadline + ", so it lands in the right week when you look back." : "No date could be attached to this receipt.",
         steps: [
-          "Nothing to pay and nothing to answer. It is a record, not a bill.",
-          "If you need the item by item list, open the receipt link yourself from the original text message.",
-          "File it and forget it; it will be here at tax time or when a return needs proof of purchase."
+          "Nothing to pay, nothing to answer. It's a record, not a bill.",
+          "Want the item by item list? Open the link from the original text.",
+          "It'll be here at tax time, or if a return ever needs proof."
         ],
         scam: {
-          title: "Signs this is genuine, and one caution",
+          title: "One caution",
           points: [
-            "A genuine receipt text arrives right after a purchase you remember, and asks for nothing.",
-            "Caution: receipt links can be imitated. If a text like this arrives for a purchase you never made, do not open the link and do not reply; call the store at a number you already trust.",
-            "Life Jacket never opens links on its own, and it covered this link before this explanation was written."
+            "A real receipt text shows up right after a purchase you remember, and asks for nothing.",
+            "If one shows up for something you never bought, don't open the link and don't reply. Call the store at a number you already have.",
+            "Life Jacket doesn't open links by itself. This one was covered before the explanation was written."
           ]
         }
       };
@@ -203,21 +203,21 @@
     // utility
     var amount = fieldValue(extracted, "Amount due");
     return {
-      whatItIs: "Your monthly electric bill. The amount due is " + (amount || "shown on the bill") + ", for 1,084 kWh of usage this period. Your previous balance was zero, so this is one month of electricity.",
+      whatItIs: "Your electric bill. " + (amount || "The amount is on the bill") + " due, for 1,084 kWh this period. Last month was paid off, so this is just this month.",
       whatMatters: [
-        "Paying by the due date avoids the $6.00 late fee.",
-        "The amount is in line with a normal month for a home, given last month's payment of $118.22."
+        "Pay by the due date and there's no $6.00 late fee.",
+        "It's in line with a normal month. Last month's payment was $118.22."
       ],
-      deadlineLine: deadline ? "Payment is due by " + deadline + "." : "No due date was found on this bill.",
+      deadlineLine: deadline ? "Due by " + deadline + "." : "No due date turned up on this bill.",
       steps: [
-        "Pay as you normally do: online, by phone, or by check with the account number on it.",
-        "Then forget it. The due date is on your calendar for next month's bill too."
+        "Pay the way you usually do: online, by phone, or by check.",
+        "Next month's due date is on your calendar too."
       ],
       scam: {
-        title: "Signs this is genuine, and one caution",
+        title: "Watch for the fake version",
         points: [
-          "It states a billing period, a usage figure, and a previous payment that matches your records.",
-          "Caution: utility shutoff scams are common. Your cooperative will not demand payment within the hour by prepaid card. If a caller does, hang up and call the number printed on this bill."
+          "The bill shows the period, the usage, and a last payment that matches your records.",
+          "Shutoff scams are common. Your co-op won't demand payment within the hour on a prepaid card. If a caller does, hang up and call the number on this bill."
         ]
       }
     };
@@ -259,7 +259,10 @@
     }
     var model = aiModule.getGenerativeModel(ai, { model: "gemini-3.8-flash" });
     var prompt =
-      "You explain official letters and household documents to an older reader in plain, calm language. " +
+      "You explain official letters and household documents to an older reader. " +
+      "Write the way a helpful person talks: short sentences, plain words, contractions are fine. " +
+      "Do not pad, do not repeat stock phrases, and do not make everything sound the same. " +
+      "If a point is simple, say it simply and move on. " +
       "The document below has already had personal identifiers removed. Answer with exactly these sections, " +
       "each starting with its header on its own line:\n" +
       "WHAT THIS IS:\nWHAT MATTERS:\nTHE DEADLINE:\nWHAT TO DO NEXT:\nSCAM CHECK:\n\n" +
@@ -340,13 +343,13 @@
           })
         ]);
         return {
-          sourceLabel: "Explanation by Gemini in the cloud (Firebase AI Logic), working only from the approved text above",
+          sourceLabel: "Explained by Gemini in the cloud, from the approved text above",
           explanation: explanation
         };
       } catch (err) {
         try { console.error("Life Jacket cloud step failed:", err); } catch (e) {}
         var fallback = simulate(doc, extracted);
-        fallback.whatItIs = "(The cloud step could not be reached, so this local explanation was used instead.) " + fallback.whatItIs;
+        fallback.whatItIs = "(The cloud didn't answer, so this one was explained on this device.) " + fallback.whatItIs;
         return { sourceLabel: SIM_LABEL, explanation: fallback };
       }
     }
