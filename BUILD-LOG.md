@@ -260,3 +260,38 @@ VERIFICATION-REPORT-2026-11-16.md in this folder.
   instead of raw ISO dates.
 - Still open after this session: the Devpost paste and the demo
   video recording.
+
+## Protocol pass addendum (Nov 16, 2026, late evening)
+
+- The founder ordered the full product protocol pass (errors,
+  excellence, common sense, no AI tells) over every Life Jacket
+  file, read personally end to end. Findings fixed the same
+  night: the README and this log updated to the live state (see
+  above), the Devpost draft's model name corrected to Gemini 3.8
+  Flash with its links filled and its status section rewritten
+  to the verified truth, and the received-date polish above.
+  Em dash scan over every shipped file: zero.
+- BROWSER-SIDE FAILURE TRACED: repeated verification walks in an
+  automated browser fell back to the labeled simulation, once
+  hanging indefinitely on "Explaining...". A temporary
+  diagnostic build surfaced the swallowed error on the card
+  itself: the request reaches the correct endpoint with the
+  correct model, and Google answers 500, "This model is
+  currently experiencing high demand" (the free Gemini 3.8 Flash
+  tier under a demand spike), with one run instead hanging past
+  200 seconds. The same SDK call succeeded against the live
+  project from Node earlier the same evening; capacity is
+  intermittent, not a wiring fault.
+- FIXES SHIPPED for that failure class: the cloud step now
+  retries up to three times (waits of 4 and 10 seconds) inside a
+  75-second envelope, so "Explaining..." can never hang forever;
+  on final failure the card carries the plain labeled fallback
+  and the real error goes to the browser console only. Asset
+  URLs in index.html are version-queried (?v=4), after stale
+  browser caches were caught masking three consecutive deploys
+  during verification. Verified after the fix: a walk on fresh
+  assets produced the card inside the envelope with the clean
+  fallback wording.
+- REMAINING: the live Gemini label observed in a browser
+  session, which waits on the demand spike passing; the SDK
+  path itself is verified live against the project.
