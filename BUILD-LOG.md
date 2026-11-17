@@ -295,3 +295,24 @@ VERIFICATION-REPORT-2026-11-16.md in this folder.
 - REMAINING: the live Gemini label observed in a browser
   session, which waits on the demand spike passing; the SDK
   path itself is verified live against the project.
+
+## Round 4 - model stack pass (Nov 17, 2026, overnight)
+
+Ordered by Jimmy before bed: research every model and software layer the build touches, and fix what needs fixing while he slept. Full research report: hidden_files/model-stack-research-2026-11-17.md (local only, not shipped).
+
+What changed in cloud.js:
+
+- Firebase SDK 12.11.0 to 13.3.0. The old pin contained the responseSchema bug (fixed in 12.12.0) and broken promptFeedback for this backend (fixed in 13.3.0).
+- The cloud explanation now uses structured output: a six-field JSON schema replaces the headed-text reply and its header search, so a section cannot arrive misspelled, missing, or wrapped in preamble.
+- The standing rules (voice and fidelity) moved into a system instruction, apart from the document text itself.
+- Thinking level set to LOW explicitly, maxOutputTokens 2048, and a finishReason check, so a cut-off answer fails loudly instead of being parsed.
+- New fidelity check: every date and every dollar amount in a cloud explanation is verified against the approved text plus the extractor's fields and key dates before the card is shown. A mismatch fails the call (retry, then the labeled on-device explanation), never reaches the reader.
+- Deadline guidance now covers due dates the document lets you work out (a start date plus a stated period), with the working shown in the sentence.
+
+Traps found in testing, before anything shipped: on this SDK, Schema.array takes an options object ({ items: ... }); the direct form fails inside the SDK with a toJSON error. Also verified from Google's docs: temperature and its siblings are ignored on Gemini 3.x, and frequency/presence penalties fail requests outright, so neither was added.
+
+Verification: the fidelity logic passed 8 hand cases (drifted date and amount caught; computed key date, ordinal and day-first dates, and bare-decimal source amounts pass). Live walks on the new build: 5 of 5 document kinds (Medicare, IRS, vet, utility, receipt) returned the cloud label with facts matching their documents. A follow-up vet walk after the deadline tweak shows the computed rabies date inside the explanation itself: "The rabies shot expires on December 12, 2026, which is 3 years after the December 12, 2023 shot date."
+
+App Check, from a read-only console check the same night: AI Logic sits at "Basic - Monitoring" with "Enforces Jan 21, 2027". The web app is not yet registered with an attestation provider. Nothing to do before the contest; reCAPTCHA Enterprise registration plus initializeAppCheck must ship before Jan 21, 2027.
+
+Commits: 581322b (SDK, structured output, fidelity check, README billing line), 6031279 (deadline guidance).
