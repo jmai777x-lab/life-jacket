@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Life Jacket - the keeper for the documents of your life</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="site">
+  <div class="wrap">
+    <h1>Life <span class="ring">Jacket</span></h1>
+    <p class="tagline">Everything important in your life already arrives in your email and your texts. Life Jacket keeps it.</p>
+    <nav class="main" id="main-nav">
+      <button data-action="nav" data-view="inbox" class="active">Inbox<span class="count" id="count-inbox"></span></button>
+      <button data-action="nav" data-view="shelves">Shelves<span class="count" id="count-shelves"></span></button>
+      <button data-action="nav" data-view="calendar">Calendar<span class="count" id="count-calendar"></span></button>
+    </nav>
+  </div>
+</header>
+
+<div class="wrap">
+  <main id="app"><!-- views render here --></main>
+
+  <footer class="site">
+    <p>Life Jacket reads documents on this device first. Names and numbers are
+    covered here, by you, before anything is explained in the cloud, and the
+    cloud only ever sees the exact text you approved. All sample documents in
+    this demo are fictional.</p>
+    <p><button class="btn secondary" data-action="reset-demo">Reset demo data</button></p>
+  </footer>
+</div>
+
+<script src="firebase-config.js"></script>
+<script src="data.js"></script>
+<script src="engine.js"></script>
+<script src="cloud.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
