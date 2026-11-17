@@ -32,9 +32,11 @@ No build step, no install, no server.
 
 The live cloud explanation is connected: `firebase-config.js`
 carries the Life Jacket Firebase project's web app config (project
-identifiers, not secrets), AI Logic is enabled on the free Gemini
-Developer API plan, and the explanation step runs live against
-Gemini 3.8 Flash. If the config is removed, or the cloud cannot be
+identifiers, not secrets), AI Logic is enabled, and the
+explanation step runs live against Gemini 3.8 Flash on the paid
+Gemini API tier (Paid 1), funded by a small prepay balance. The
+project started on the free tier; its 20 requests a day ran out
+during testing on Nov 16, 2026, which is why it moved. If the config is removed, or the cloud cannot be
 reached, the app runs its cloud step as a clearly labeled local
 simulation instead, and the on-screen label says so. To run your
 own copy against your own project instead, create a Firebase

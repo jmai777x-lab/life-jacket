@@ -227,14 +227,152 @@
   // Loaded lazily from the Firebase CDN only when a config exists, so
   // the app makes zero network calls in demo mode.
 
-  // SDK version pinned to one where the Firebase AI Logic module
-  // (firebase-ai.js) actually exists on the CDN. The older 11.3.1
-  // pin predates the AI Logic rename and its firebase-ai.js URL
-  // returns 404, which silently forced every live attempt into the
-  // simulation fallback. Verified against the CDN on Nov 16, 2026.
-  var FIREBASE_SDK_VERSION = "12.11.0";
+  // SDK version pinned to 13.3.0. The version matters here, not
+  // just for currency: the 12.11.0 pin this build started on
+  // contains the bug that makes structured output (responseSchema)
+  // error out (fixed in 12.12.0), and its promptFeedback is broken
+  // for this backend (fixed in 13.3.0). 13.3.0 verified against
+  // the live project on Nov 17, 2026. Note for anyone editing the
+  // schema below: in this SDK, Schema.array takes an options
+  // object ({ items: ... }), not the item schema directly; the
+  // direct form fails at call time with a toJSON error inside
+  // the SDK. That mistake was made and caught in testing on
+  // Nov 17, 2026, before it ever reached this file.
+  var FIREBASE_SDK_VERSION = "13.3.0";
 
-  async function explainWithFirebase(config, cleanText, doc) {
+  // The standing rules for the cloud explanation, given as a
+  // system instruction so they sit apart from the document text
+  // itself: the voice, and the fidelity rules the product
+  // promises (facts only from the document, dates and amounts
+  // copied exactly, no guessing).
+  var SYSTEM_INSTRUCTION =
+    "You explain official letters and household documents to an older reader. " +
+    "Write the way a helpful person talks: short sentences, plain words, contractions are fine. " +
+    "Do not pad, do not repeat stock phrases, and do not make everything sound the same. " +
+    "If a point is simple, say it simply and move on. " +
+    "Use only facts that are in the document. Copy every date and every amount exactly as the document writes it. " +
+    "If a fact is not in the document, say so plainly instead of guessing. Never add facts from outside the document. " +
+    "For the scam fields, judge from the document itself: what it asks for, how it asks, and whether that matches how the real sender behaves. " +
+    "Standing cautions that often fit: the IRS opens by mail, never by text or email; Medicare does not call people asking for numbers or payments; " +
+    "no real bill demands payment within the hour on a prepaid card or gift cards.";
+
+  // The shape the explanation must come back in. Structured
+  // output replaces the old headed-text reply and its header
+  // search: a field cannot arrive misspelled, missing, or
+  // wrapped in preamble.
+  function explanationSchema(Schema) {
+    return Schema.object({
+      properties: {
+        whatItIs: Schema.string({ description: "What the document is, and the one thing it is really about." }),
+        whatMatters: Schema.array({ items: Schema.string() }),
+        deadlineLine: Schema.string({ description: "One short sentence giving the date the reader must act by, the date copied exactly as the document writes it. If no deadline turned up, a plain sentence saying so." }),
+        steps: Schema.array({ items: Schema.string() }),
+        scamTitle: Schema.string({ description: "A short plain heading saying whether this document looks genuine, or what to watch for." }),
+        scamPoints: Schema.array({ items: Schema.string() })
+      }
+    });
+  }
+
+  // ----- the fidelity check -----
+  // Structured output guarantees the explanation's shape, not
+  // its truth. So before a cloud explanation is shown, every
+  // date and every dollar amount in it is checked against the
+  // text the user approved, plus the fields and key dates the
+  // on-device extractor computed from that text (a rabies due
+  // date, for instance, is worked out from a vaccination date
+  // and a 3-year interval, so it is in the extracted key dates
+  // rather than in the letter itself). A date or amount found
+  // in neither place means the explanation drifted, and the
+  // call is treated as failed: retried, then replaced by the
+  // labeled on-device explanation, never shown.
+
+  var MONTHS = {
+    january: 1, jan: 1, february: 2, feb: 2, march: 3, mar: 3,
+    april: 4, apr: 4, may: 5, june: 6, jun: 6, july: 7, jul: 7,
+    august: 8, aug: 8, september: 9, sept: 9, sep: 9,
+    october: 10, oct: 10, november: 11, nov: 11, december: 12, dec: 12
+  };
+  var MONTH_NAME = "January|February|March|April|May|June|July|August|September|October|November|December|Jan\\.?|Feb\\.?|Mar\\.?|Apr\\.?|Jun\\.?|Jul\\.?|Aug\\.?|Sept\\.?|Sep\\.?|Oct\\.?|Nov\\.?|Dec\\.?";
+
+  function isoOf(month, day, year) {
+    function p(n) { return (n < 10 ? "0" : "") + n; }
+    return year + "-" + p(month) + "-" + p(day);
+  }
+
+  function collectDates(text, into) {
+    if (!text) return;
+    var m;
+    var monthFirst = new RegExp("\\b(" + MONTH_NAME + ")\\s+(\\d{1,2})(?:st|nd|rd|th)?,?\\s+(\\d{4})\\b", "gi");
+    while ((m = monthFirst.exec(text)) !== null) {
+      var mon = MONTHS[m[1].toLowerCase().replace(".", "")];
+      if (mon) into[isoOf(mon, parseInt(m[2], 10), m[3])] = true;
+    }
+    var dayFirst = new RegExp("\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+(" + MONTH_NAME + ")\\s+(\\d{4})\\b", "gi");
+    while ((m = dayFirst.exec(text)) !== null) {
+      var mon2 = MONTHS[m[2].toLowerCase().replace(".", "")];
+      if (mon2) into[isoOf(mon2, parseInt(m[1], 10), m[3])] = true;
+    }
+    var iso = /\b(\d{4})-(\d{2})-(\d{2})\b/g;
+    while ((m = iso.exec(text)) !== null) into[m[0]] = true;
+    var slashes = /\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/g;
+    while ((m = slashes.exec(text)) !== null) {
+      into[isoOf(parseInt(m[1], 10), parseInt(m[2], 10), m[3])] = true;
+    }
+  }
+
+  function collectAmounts(text, into, bareDecimals) {
+    if (!text) return;
+    var m;
+    var dollars = /\$([\d,]+(?:\.\d{1,2})?)/g;
+    while ((m = dollars.exec(text)) !== null) {
+      var v = parseFloat(m[1].replace(/,/g, ""));
+      if (!isNaN(v)) into[v.toFixed(2)] = true;
+    }
+    if (bareDecimals) {
+      // On the source side, also take bare money-shaped numbers
+      // (a document may write 1,284.00 without the $ sign), so a
+      // correct explanation amount is not failed for the sign.
+      var bare = /\b([\d,]+\.\d{2})\b/g;
+      while ((m = bare.exec(text)) !== null) {
+        var b = parseFloat(m[1].replace(/,/g, ""));
+        if (!isNaN(b)) into[b.toFixed(2)] = true;
+      }
+    }
+  }
+
+  function checkFidelity(explanation, cleanText, extracted) {
+    var srcDates = {}, srcAmounts = {};
+    collectDates(cleanText, srcDates);
+    collectAmounts(cleanText, srcAmounts, true);
+    if (extracted) {
+      (extracted.fields || []).forEach(function (f) {
+        collectDates(f.value, srcDates);
+        collectAmounts(f.value, srcAmounts, true);
+      });
+      (extracted.keyDates || []).forEach(function (k) {
+        if (k.dateISO) srcDates[k.dateISO] = true;
+        collectDates(k.dateText, srcDates);
+      });
+    }
+    var pieces = [explanation.whatItIs, explanation.deadlineLine, explanation.scam.title];
+    (explanation.whatMatters || []).forEach(function (x) { pieces.push(x); });
+    (explanation.steps || []).forEach(function (x) { pieces.push(x); });
+    (explanation.scam.points || []).forEach(function (x) { pieces.push(x); });
+    for (var i = 0; i < pieces.length; i++) {
+      var d = {}, a = {};
+      collectDates(pieces[i], d);
+      collectAmounts(pieces[i], a, false);
+      for (var dk in d) {
+        if (!srcDates[dk]) return "a date the document does not contain (" + dk + ")";
+      }
+      for (var ak in a) {
+        if (!srcAmounts[ak]) return "an amount the document does not contain ($" + ak + ")";
+      }
+    }
+    return null;
+  }
+
+  async function explainWithFirebase(config, cleanText, doc, extracted) {
     var base = "https://www.gstatic.com/firebasejs/" + FIREBASE_SDK_VERSION + "/";
     var appModule = await import(base + "firebase-app.js");
     var aiModule = await import(base + "firebase-ai.js");
@@ -257,7 +395,52 @@
     } else {
       ai = aiModule.getAI(app);
     }
-    var model = aiModule.getGenerativeModel(ai, { model: "gemini-3.8-flash" });
+    // Preferred path: structured output. The reply comes back
+    // as JSON in the schema's shape, the standing rules ride as
+    // a system instruction apart from the document, and the
+    // thinking level is set to LOW on purpose: this job is
+    // extracting and restating a short document's facts, and
+    // thinking tokens are billed as output. (MINIMAL is not
+    // offered: this model rejects it with an error.)
+    if (aiModule.Schema && typeof aiModule.Schema.object === "function") {
+      var model = aiModule.getGenerativeModel(ai, {
+        model: "gemini-3.8-flash",
+        systemInstruction: SYSTEM_INSTRUCTION,
+        generationConfig: {
+          thinkingConfig: { thinkingLevel: "LOW" },
+          maxOutputTokens: 2048,
+          responseMimeType: "application/json",
+          responseSchema: explanationSchema(aiModule.Schema)
+        }
+      });
+      var result = await model.generateContent("Document:\n" + cleanText);
+      var response = result.response;
+      if (response.promptFeedback && response.promptFeedback.blockReason) {
+        throw new Error("the cloud step was blocked: " + response.promptFeedback.blockReason);
+      }
+      var cand = response.candidates && response.candidates[0];
+      if (cand && cand.finishReason && cand.finishReason !== "STOP") {
+        throw new Error("the cloud step stopped early: " + cand.finishReason);
+      }
+      var parsed = JSON.parse(response.text());
+      var explanation = {
+        whatItIs: String(parsed.whatItIs || ""),
+        whatMatters: (parsed.whatMatters || []).map(function (x) { return String(x); }),
+        deadlineLine: String(parsed.deadlineLine || ""),
+        steps: (parsed.steps || []).map(function (x) { return String(x); }),
+        scam: {
+          title: String(parsed.scamTitle || "Scam check"),
+          points: (parsed.scamPoints || []).map(function (x) { return String(x); })
+        }
+      };
+      var drift = checkFidelity(explanation, cleanText, extracted);
+      if (drift) throw new Error("the cloud explanation named " + drift);
+      return explanation;
+    }
+    // Legacy path, kept for one case only: a future SDK that
+    // moves the Schema helpers, so the cloud step degrades to
+    // the original headed-text reply instead of dying outright.
+    var legacyModel = aiModule.getGenerativeModel(ai, { model: "gemini-3.8-flash" });
     var prompt =
       "You explain official letters and household documents to an older reader. " +
       "Write the way a helpful person talks: short sentences, plain words, contractions are fine. " +
@@ -267,9 +450,8 @@
       "each starting with its header on its own line:\n" +
       "WHAT THIS IS:\nWHAT MATTERS:\nTHE DEADLINE:\nWHAT TO DO NEXT:\nSCAM CHECK:\n\n" +
       "Document:\n" + cleanText;
-    var result = await model.generateContent(prompt);
-    var text = result.response.text();
-    return parseSections(text);
+    var legacyResult = await legacyModel.generateContent(prompt);
+    return parseSections(legacyResult.response.text());
   }
 
   function parseSections(text) {
@@ -327,7 +509,7 @@
               await new Promise(function (r) { setTimeout(r, waits[i]); });
             }
             try {
-              return await explainWithFirebase(config, cleanText, doc);
+              return await explainWithFirebase(config, cleanText, doc, extracted);
             } catch (err) {
               lastErr = err;
             }
