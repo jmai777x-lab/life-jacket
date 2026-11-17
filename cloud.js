@@ -306,16 +306,37 @@
     // simulation instead of attempting a call that cannot succeed.
     if (config && config.apiKey && config.projectId && config.appId) {
       try {
-        // The cloud step gets 45 seconds, never forever: a reader
-        // must never be left staring at "Explaining..." with no
-        // answer. A timeout falls back to the labeled local
-        // explanation, the same as any other failure to reach it.
+        // The cloud step is retried before it is given up on: the
+        // free Gemini service sometimes answers a demand spike
+        // with a temporary error (a 500 "high demand" response,
+        // seen live on Nov 16, 2026), and a short wait clears it.
+        // Three attempts, waiting 4 and then 10 seconds between
+        // them, inside a 75-second envelope, never forever: a
+        // reader must never be left staring at "Explaining..."
+        // with no answer. If every attempt fails, the labeled
+        // local explanation is used, the same as any other
+        // failure to reach the cloud.
+        var attemptCloud = (async function () {
+          var waits = [0, 4000, 10000];
+          var lastErr = null;
+          for (var i = 0; i < waits.length; i++) {
+            if (waits[i]) {
+              await new Promise(function (r) { setTimeout(r, waits[i]); });
+            }
+            try {
+              return await explainWithFirebase(config, cleanText, doc);
+            } catch (err) {
+              lastErr = err;
+            }
+          }
+          throw lastErr || new Error("the cloud step could not be reached");
+        })();
         var explanation = await Promise.race([
-          explainWithFirebase(config, cleanText, doc),
+          attemptCloud,
           new Promise(function (resolve, reject) {
             setTimeout(function () {
-              reject(new Error("the cloud step did not answer within 45 seconds"));
-            }, 45000);
+              reject(new Error("the cloud step did not answer within 75 seconds"));
+            }, 75000);
           })
         ]);
         return {
@@ -323,13 +344,9 @@
           explanation: explanation
         };
       } catch (err) {
+        try { console.error("Life Jacket cloud step failed:", err); } catch (e) {}
         var fallback = simulate(doc, extracted);
-        // TEMPORARY DIAGNOSTIC (Nov 16, 2026): the Detail suffix
-        // carries the real failure reason onto the card so the
-        // browser-side failure can be read off the screen. Finalize
-        // this wording once the cause is fixed.
-        fallback.whatItIs = "(The cloud step could not be reached, so this local explanation was used instead. Detail: " +
-          (err && err.message ? err.message : String(err)) + ") " + fallback.whatItIs;
+        fallback.whatItIs = "(The cloud step could not be reached, so this local explanation was used instead.) " + fallback.whatItIs;
         return { sourceLabel: SIM_LABEL, explanation: fallback };
       }
     }
