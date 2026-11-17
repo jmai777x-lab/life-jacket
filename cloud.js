@@ -257,7 +257,7 @@
     } else {
       ai = aiModule.getAI(app);
     }
-    var model = aiModule.getGenerativeModel(ai, { model: "gemini-2.5-flash" });
+    var model = aiModule.getGenerativeModel(ai, { model: "gemini-3.8-flash" });
     var prompt =
       "You explain official letters and household documents to an older reader in plain, calm language. " +
       "The document below has already had personal identifiers removed. Answer with exactly these sections, " +
