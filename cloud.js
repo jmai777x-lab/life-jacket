@@ -306,14 +306,30 @@
     // simulation instead of attempting a call that cannot succeed.
     if (config && config.apiKey && config.projectId && config.appId) {
       try {
-        var explanation = await explainWithFirebase(config, cleanText, doc);
+        // The cloud step gets 45 seconds, never forever: a reader
+        // must never be left staring at "Explaining..." with no
+        // answer. A timeout falls back to the labeled local
+        // explanation, the same as any other failure to reach it.
+        var explanation = await Promise.race([
+          explainWithFirebase(config, cleanText, doc),
+          new Promise(function (resolve, reject) {
+            setTimeout(function () {
+              reject(new Error("the cloud step did not answer within 45 seconds"));
+            }, 45000);
+          })
+        ]);
         return {
           sourceLabel: "Explanation by Gemini in the cloud (Firebase AI Logic), working only from the approved text above",
           explanation: explanation
         };
       } catch (err) {
         var fallback = simulate(doc, extracted);
-        fallback.whatItIs = "(The cloud step could not be reached, so this local explanation was used instead.) " + fallback.whatItIs;
+        // TEMPORARY DIAGNOSTIC (Nov 16, 2026): the Detail suffix
+        // carries the real failure reason onto the card so the
+        // browser-side failure can be read off the screen. Finalize
+        // this wording once the cause is fixed.
+        fallback.whatItIs = "(The cloud step could not be reached, so this local explanation was used instead. Detail: " +
+          (err && err.message ? err.message : String(err)) + ") " + fallback.whatItIs;
         return { sourceLabel: SIM_LABEL, explanation: fallback };
       }
     }
