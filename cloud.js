@@ -251,6 +251,7 @@
     "Do not pad, do not repeat stock phrases, and do not make everything sound the same. " +
     "If a point is simple, say it simply and move on. " +
     "Use only facts that are in the document. Copy every date and every amount exactly as the document writes it. " +
+    "One exception: a date the document lets you work out exactly, like a shot given on a stated date that lasts a stated number of years. Give that date, and say in a few words how you got it. " +
     "If a fact is not in the document, say so plainly instead of guessing. Never add facts from outside the document. " +
     "For the scam fields, judge from the document itself: what it asks for, how it asks, and whether that matches how the real sender behaves. " +
     "Standing cautions that often fit: the IRS opens by mail, never by text or email; Medicare does not call people asking for numbers or payments; " +
@@ -265,7 +266,7 @@
       properties: {
         whatItIs: Schema.string({ description: "What the document is, and the one thing it is really about." }),
         whatMatters: Schema.array({ items: Schema.string() }),
-        deadlineLine: Schema.string({ description: "One short sentence giving the date the reader must act by, the date copied exactly as the document writes it. If no deadline turned up, a plain sentence saying so." }),
+        deadlineLine: Schema.string({ description: "One short sentence giving the date the reader must act by: a date copied exactly as the document writes it, or a due date the document lets you work out exactly (a start date plus a stated period, like a vaccine that lasts 3 years). If no date of either kind turned up, a plain sentence saying so." }),
         steps: Schema.array({ items: Schema.string() }),
         scamTitle: Schema.string({ description: "A short plain heading saying whether this document looks genuine, or what to watch for." }),
         scamPoints: Schema.array({ items: Schema.string() })
