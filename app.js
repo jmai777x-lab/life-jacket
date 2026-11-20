@@ -68,6 +68,17 @@
   var currentDocId = null;
   var idCache = {};          // docId -> identifier spans (deterministic)
 
+  // ---------- screen share intake: session state ----------
+  // Memory only. This is never written to localStorage, and it
+  // never holds a raw captured page. A captured frame exists only
+  // long enough to be read and covered on this device; what the
+  // session keeps, page by page, is the covered text, the count of
+  // things covered, and the kinds (labels like "Email address",
+  // never the values). The live preview is a mirror of the user's
+  // own screen so they can line a page up; nothing is kept from
+  // the preview itself.
+  var screenSession = null;  // { stream, pages: [{text, coveredCount, kinds}] }
+
   function save() {
     try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (err) {}
   }
@@ -191,6 +202,7 @@
     else if (view === "calendar") appEl.innerHTML = viewCalendar();
     window.scrollTo(0, view === "doc" ? window.__keepScroll || 0 : 0);
     window.__keepScroll = 0;
+    mountScreenPreview();
   }
 
   function renderNav() {
@@ -217,6 +229,7 @@
       '<p class="step-note" style="color:var(--ink-soft);margin:0 0 12px;">Not everything arrives by email. Some receipts come as a text. On your phone, open the text, press and hold to copy it, then paste the whole message here. Got a screenshot instead? Type or paste what it says. It gets read on this device first, same as everything else.</p>' +
       '<textarea id="text-intake" rows="6" placeholder="Paste the text message here"></textarea>' +
       '<p style="margin:12px 0 0;"><button class="btn" data-action="add-text">Add it to the inbox</button></p></div>';
+    html += screenCardHtml();
     docs.forEach(function (doc) {
       html += '<div class="card doc-card" data-action="open-doc" data-id="' + doc.id + '">' +
         '<div class="meta"><span class="from">' + esc(doc.sender) + '</span>' +
@@ -291,8 +304,18 @@
       // Step 2: redaction with the human review gate
       var ids = identifiersFor(doc);
       var coveredCount = ids.length - p.uncovered.length;
-      html += '<div class="step"><h3>Step 2. Cover the private parts, here, before anything else</h3>' +
-        '<p class="step-note">Life Jacket found ' + ids.length + ' identifier' + (ids.length === 1 ? '' : 's') +
+      html += '<div class="step"><h3>Step 2. Cover the private parts, here, before anything else</h3>';
+      if (typeof doc.capturedCovered === "number") {
+        // A screen-share document arrives already covered: the
+        // covering happened while the pages were being read, and
+        // only the covered pages were kept. Say so plainly, so the
+        // empty second look below is not mistaken for the first.
+        html += '<p class="step-note">These pages came from your screen. While they were being read, Life Jacket covered ' +
+          doc.capturedCovered + (doc.capturedCovered === 1 ? ' name or number' : ' names and numbers') +
+          (doc.capturedKinds && doc.capturedKinds.length ? ' (' + esc(doc.capturedKinds.join(", ")) + ')' : '') +
+          ', and only the covered pages were kept. The original screen was never saved. Below is a second look at the kept pages.</p>';
+      }
+      html += '<p class="step-note">Life Jacket found ' + ids.length + ' identifier' + (ids.length === 1 ? '' : 's') +
         ' in this document. Covered items show as black bars. Untick a box only if you are sure that item may be seen.</p>' +
         '<pre class="doc-text">' + renderRedacted(doc) + '</pre>' +
         '<ul class="cover-list">';
@@ -411,6 +434,246 @@
     return html;
   }
 
+  // ---------- screen share intake ----------
+
+  function screenSupported() {
+    return !!(navigator.mediaDevices &&
+      typeof navigator.mediaDevices.getDisplayMedia === "function");
+  }
+
+  function setScreenStatus(msg) {
+    var el = document.getElementById("screen-status");
+    if (el) el.textContent = msg;
+  }
+
+  // render() rebuilds the inbox HTML, which replaces the preview
+  // element, so after every render the stream has to be handed to
+  // the new element. The stream itself is untouched by rendering.
+  function mountScreenPreview() {
+    var video = document.getElementById("screen-preview");
+    if (video && screenSession && screenSession.stream) {
+      if (video.srcObject !== screenSession.stream) {
+        video.srcObject = screenSession.stream;
+        var p = video.play();
+        if (p && typeof p.catch === "function") p.catch(function () {});
+      }
+    }
+  }
+
+  function screenPagesHtml() {
+    if (!screenSession || !screenSession.pages.length) return "";
+    var html = '<h4 style="margin:14px 0 6px;">Pages captured so far: ' +
+      screenSession.pages.length + '</h4>';
+    screenSession.pages.forEach(function (pg, i) {
+      html += '<div class="screen-page"><p class="step-note" style="margin:0 0 6px;">Page ' + (i + 1) +
+        ': ' + pg.coveredCount + (pg.coveredCount === 1 ? ' name or number' : ' names and numbers') +
+        ' covered before this page was kept.</p>' +
+        '<pre class="doc-text">' + esc(pg.text) + '</pre></div>';
+    });
+    html += '<p style="margin:12px 0 0;"><button class="btn teal" data-action="screen-finish">Add these pages to my inbox</button> ' +
+      '<button class="btn secondary" data-action="screen-discard">Throw these pages away</button></p>';
+    return html;
+  }
+
+  function screenCardHtml() {
+    var html = '<div class="card intake"><h3 style="margin-top:0;font-size:24px;">Read my screen</h3>';
+    if (!screenSupported()) {
+      html += '<p class="step-note" style="color:var(--ink-soft);margin:0;">This browser cannot share a screen with Life Jacket. Screen sharing needs a recent Chrome, opened from a secure address (https), the way Life Jacket is normally opened.</p>';
+      return html + '</div>';
+    }
+    html += '<p class="step-note" style="color:var(--ink-soft);margin:0 0 12px;">Reading something in your email, or on a website? Show it to Life Jacket instead of copying it out. You pick what to share: one browser tab, one window, or the whole screen. Life Jacket never sees anything you did not pick.</p>' +
+      '<p class="step-note" style="color:var(--ink-soft);margin:0 0 12px;">When you capture a page, Life Jacket reads the words here on this device and covers names, numbers, and addresses BEFORE the page is shown here, kept, or sent anywhere. Only the covered page is ever kept; the original screen is never saved. The scam check reads everything on the pages you capture, ads and pop-ups included, the same as it reads everything else.</p>';
+    if (!screenSession) {
+      html += '<p style="margin:0;"><button class="btn" data-action="screen-start">Share my screen</button></p>';
+    } else if (screenSession.stream) {
+      html += '<video id="screen-preview" class="screen-preview" autoplay muted playsinline></video>' +
+        '<p class="step-note" style="margin:10px 0;">This preview only mirrors your own screen back at you, so you can line the page up. Nothing is kept from the preview. Line up the page, then capture it. For a long email or page, scroll and capture again; the captures become the pages of one document.</p>' +
+        '<p style="margin:0;"><button class="btn" data-action="screen-capture">Capture this page</button> ' +
+        '<button class="btn secondary" data-action="screen-stop">Stop sharing</button></p>';
+    } else {
+      html += '<p class="step-note" style="margin:0 0 10px;">Sharing has stopped. The pages you captured are still here, below.</p>' +
+        '<p style="margin:0;"><button class="btn" data-action="screen-start">Share my screen again</button></p>';
+    }
+    html += '<p class="screen-status" id="screen-status"></p>';
+    html += '<div id="screen-pages">' + screenPagesHtml() + '</div>';
+    return html + '</div>';
+  }
+
+  // Update only the captured-pages part of the card, so capturing
+  // a page never disturbs the live preview by rebuilding the view.
+  function refreshScreenCard() {
+    var holder = document.getElementById("screen-pages");
+    if (holder) holder.innerHTML = screenPagesHtml();
+  }
+
+  // Read the words off one captured frame, here on the device.
+  // Two built-in readers are tried, in order: the browser's own
+  // text detector (the Shape Detection API), then Chrome's
+  // on-device model (Gemini Nano) shown the picture itself.
+  // Returns { text, reader } or null when neither reader answers.
+  async function ocrFrame(canvas) {
+    if (typeof window.TextDetector === "function") {
+      try {
+        var detector = new window.TextDetector();
+        var blocks = await detector.detect(canvas);
+        var lines = (blocks || []).map(function (b) {
+          return String(b.rawValue || b.text || "").trim();
+        }).filter(Boolean);
+        if (lines.length) {
+          return { text: lines.join("\n"), reader: "this browser's built-in text reader" };
+        }
+      } catch (err) { /* fall through to the on-device model */ }
+    }
+    var LM = window.LanguageModel ||
+      (window.ai && window.ai.languageModel) || null;
+    if (LM) {
+      var attempt = (async function () {
+        try {
+          if (typeof LM.availability === "function") {
+            var avail = await LM.availability();
+            if (avail === "unavailable" || avail === "no") return null;
+          }
+          var session = await LM.create();
+          var reply = await session.prompt([{
+            role: "user",
+            content: [
+              { type: "text", value: "Copy out every word you can read in this picture, top to bottom, one line at a time. Add nothing, explain nothing, leave no words out." },
+              { type: "image", value: canvas }
+            ]
+          }]);
+          if (session && typeof session.destroy === "function") session.destroy();
+          return typeof reply === "string" && reply.trim()
+            ? { text: reply.trim(), reader: "Gemini Nano on this device" } : null;
+        } catch (err) {
+          return null;
+        }
+      })();
+      var timeout = new Promise(function (resolve) {
+        setTimeout(function () { resolve(null); }, 20000);
+      });
+      var viaNano = await Promise.race([attempt, timeout]);
+      if (viaNano) return viaNano;
+    }
+    return null;
+  }
+
+  async function doScreenStart(btn) {
+    btn.disabled = true;
+    var stream = null;
+    try {
+      stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+    } catch (err) {
+      // The picker was closed, or the browser refused. Nothing
+      // was seen and nothing was kept.
+      btn.disabled = false;
+      setScreenStatus("Sharing did not start. Nothing was seen and nothing was kept. If you want to try again, tap the share button and pick what to show.");
+      return;
+    }
+    if (!screenSession) screenSession = { stream: null, pages: [] };
+    screenSession.stream = stream;
+    var track = stream.getVideoTracks()[0];
+    if (track) track.addEventListener("ended", onScreenStreamEnded);
+    render();
+  }
+
+  function onScreenStreamEnded() {
+    // The user stopped the share from the browser's own controls.
+    // The stream is gone; the captured pages stay.
+    if (!screenSession || !screenSession.stream) return;
+    screenSession.stream = null;
+    if (view === "inbox") render();
+  }
+
+  function stopScreenStream() {
+    if (screenSession && screenSession.stream) {
+      screenSession.stream.getTracks().forEach(function (t) { t.stop(); });
+      screenSession.stream = null;
+    }
+  }
+
+  async function doScreenCapture(btn) {
+    var video = document.getElementById("screen-preview");
+    if (!screenSession || !screenSession.stream || !video || !video.videoWidth) {
+      setScreenStatus("The preview is not ready yet. Give it a second, then capture again.");
+      return;
+    }
+    btn.disabled = true;
+    setScreenStatus("Reading this page here on this device...");
+    // The frame is drawn to a canvas that lives only for this
+    // capture. It is never shown, never saved, and never sent:
+    // the words are read off it, the covering happens, and the
+    // canvas is thrown away. What is kept is the covered text.
+    var canvas = document.createElement("canvas");
+    var scale = Math.min(1, 1600 / Math.max(video.videoWidth, video.videoHeight));
+    canvas.width = Math.round(video.videoWidth * scale);
+    canvas.height = Math.round(video.videoHeight * scale);
+    canvas.getContext("2d").drawImage(video, 0, 0, canvas.width, canvas.height);
+    var read = await ocrFrame(canvas);
+    canvas.width = 0;
+    canvas.height = 0;   // release the frame
+    if (!read) {
+      setScreenStatus("No words could be read off that page here on this device, so nothing was captured and nothing was kept. If the words are small, make them bigger on the screen and capture again. Anything you can copy can also go in the paste box above.");
+      btn.disabled = false;
+      return;
+    }
+    // Cover BEFORE anything else happens to this page: the same
+    // redaction engine and the same detectors as every other
+    // intake, with everything covered. The raw words end here.
+    var tempDoc = { body: read.text, nameVariants: [] };
+    var found = E.findIdentifiers(tempDoc);
+    var coveredText = E.buildCleanText(tempDoc, found, []);
+    var kinds = [];
+    found.forEach(function (s) {
+      if (kinds.indexOf(s.kind) < 0) kinds.push(s.kind);
+    });
+    screenSession.pages.push({
+      text: coveredText,
+      coveredCount: found.length,
+      kinds: kinds
+    });
+    refreshScreenCard();
+    setScreenStatus("Page " + screenSession.pages.length + " captured, read by " + read.reader + ". " +
+      found.length + (found.length === 1 ? " name or number was" : " names and numbers were") +
+      " covered before this page was kept. Scroll for the next part, or add these pages to your inbox.");
+    btn.disabled = false;
+  }
+
+  function doScreenFinish() {
+    if (!screenSession || !screenSession.pages.length) return;
+    var pages = screenSession.pages;
+    var body = pages.map(function (p) { return p.text; }).join("\n\n");
+    var totalCovered = 0;
+    var allKinds = [];
+    pages.forEach(function (p) {
+      totalCovered += p.coveredCount;
+      p.kinds.forEach(function (k) {
+        if (allKinds.indexOf(k) < 0) allKinds.push(k);
+      });
+    });
+    var firstLine = body.split("\n").filter(function (l) { return l.trim(); })[0] ||
+      "Something read from your screen";
+    var newDoc = {
+      id: "doc-screen-" + Date.now(),
+      kind: "",
+      channel: "Screen share",
+      sender: "Your screen",
+      subject: firstLine.length > 72 ? firstLine.slice(0, 72) + "..." : firstLine,
+      receivedISO: D.isoDay(new Date()),
+      nameVariants: [],
+      capturedCovered: totalCovered,
+      capturedKinds: allKinds,
+      body: body
+    };
+    stopScreenStream();
+    screenSession = null;
+    state.docs.push(newDoc);
+    state.per[newDoc.id] = freshPer();
+    save();
+    currentDocId = newDoc.id;
+    view = "doc";
+    render();
+  }
+
   // ---------- actions ----------
 
   async function doRead(doc, btn) {
@@ -495,9 +758,24 @@
       currentDocId = newDoc.id;
       view = "doc";
       render();
+    } else if (action === "screen-start") {
+      doScreenStart(t);
+    } else if (action === "screen-capture") {
+      doScreenCapture(t);
+    } else if (action === "screen-stop") {
+      stopScreenStream();
+      render();
+    } else if (action === "screen-finish") {
+      doScreenFinish();
+    } else if (action === "screen-discard") {
+      stopScreenStream();
+      screenSession = null;
+      render();
     } else if (action === "export-ics") {
       doExport();
     } else if (action === "reset-demo") {
+      stopScreenStream();
+      screenSession = null;
       try { localStorage.removeItem(STORE_KEY); } catch (err) {}
       state = loadState();
       idCache = {};
