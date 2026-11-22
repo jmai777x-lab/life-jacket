@@ -138,7 +138,11 @@
     collect("Email address", /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g);
     collect("Medicare number", /\b[1-9][A-Z][A-Z0-9][0-9]-[A-Z][A-Z0-9][0-9]-[A-Z][A-Z0-9][0-9][0-9]\b/g);
     collect("Social Security number", /\b\d{3}-\d{2}-\d{4}\b/g);
-    collect("Card or account number", /\b(?:\d[ -]?){12,18}\d\b/g);
+    // 12 to 19 digits: account numbers on bills run shorter than
+    // card numbers, and the seeded utility bill's own 12-digit
+    // account number must be covered. (Widened 2026-11-22; the old
+    // lower bound of 13 let 12-digit account numbers through.)
+    collect("Card or account number", /\b(?:\d[ -]?){11,18}\d\b/g);
     collect("Phone number", /(?:\+?1[-. ]?)?\(?\d{3}\)?[-. ]\d{3}[-. ]\d{4}/g);
 
     // Date of birth: cover the date itself when it follows the label.
@@ -263,7 +267,7 @@
       field("New monthly premium", labeledAmount(text, "New monthly premium"));
       var deadline = labeledDate(text, "Response deadline");
       field("Response deadline", deadline ? D.fmtLong(deadline) : null);
-      keyDate("Appeal response deadline", deadline, "Medicare appeal response deadline (Margaret Ellison notice)");
+      keyDate("Appeal response deadline", deadline, "Medicare appeal response deadline");
     }
 
     if (kind === "irs") {
@@ -272,10 +276,12 @@
       field("Tax year", year ? year[1] : null);
       var income = text.match(/interest income of (\$[\d,]+)/i);
       field("Income reported by a payer", income ? income[1] : null);
-      field("Proposed amount due", labeledAmount(text, "Proposed amount due"));
+      var proposedDue = labeledAmount(text, "Proposed amount due");
+      field("Proposed amount due", proposedDue);
       var respBy = labeledDate(text, "Respond by");
       field("Respond by", respBy ? D.fmtLong(respBy) : null);
-      keyDate("Response deadline", respBy, "IRS CP2000 response due (proposed change, $1,284.00)");
+      keyDate("Response deadline", respBy,
+        "IRS CP2000 response due" + (proposedDue ? " (proposed change, " + proposedDue + ")" : ""));
     }
 
     if (kind === "vet") {
@@ -307,17 +313,21 @@
       field("Next service due (computed: service + " + months + " months)", nextDueDate ? D.fmtLong(nextDueDate) : null);
       var nextMiles = text.match(/Next service due at ([\d,]+) miles/i);
       field("Next service mileage", nextMiles ? nextMiles[1] + " miles" : null);
-      keyDate("Next service due", nextDueDate, "RAV4: oil service due (or at 67,418 miles)");
+      keyDate("Next service due", nextDueDate,
+        (vehicle ? vehicle[1].trim() : "Vehicle") + ": oil service due" +
+        (nextMiles ? " (or at " + nextMiles[1] + " miles)" : ""));
     }
 
     if (kind === "utility") {
       field("Document type", "Utility bill (electric)");
-      field("Amount due", labeledAmount(text, "Amount due"));
+      var amountDue = labeledAmount(text, "Amount due");
+      field("Amount due", amountDue);
       var due = labeledDate(text, "Due date");
       field("Due date", due ? D.fmtLong(due) : null);
       var usage = text.match(/Usage this period:\s*([\d,]+ kWh)/i);
       field("Usage", usage ? usage[1] : null);
-      keyDate("Bill due date", due, "Electric bill due ($142.37)");
+      keyDate("Bill due date", due,
+        "Electric bill due" + (amountDue ? " (" + amountDue + ")" : ""));
     }
 
     if (kind === "receipt") {
