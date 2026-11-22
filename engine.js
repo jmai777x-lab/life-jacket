@@ -295,7 +295,8 @@
       var years = yearsMatch ? parseInt(yearsMatch[1], 10) : 3;
       var nextDue = given ? D.addYears(given, years) : null;
       field("Rabies next due (computed: given + " + years + " years)", nextDue ? D.fmtLong(nextDue) : null);
-      keyDate("Rabies vaccination next due", nextDue, "Biscuit: rabies vaccination due");
+      keyDate("Rabies vaccination next due", nextDue,
+        pet ? pet[1] + ": rabies vaccination due" : "Rabies vaccination due");
     }
 
     if (kind === "auto") {
@@ -341,7 +342,7 @@
       if (fromMatch) vendor = fromMatch[1].trim();
       else if (leadMatch) vendor = leadMatch[1].trim();
       field("Store", vendor);
-      var order = text.match(/order\s*(?:number|no\.?)?\s*#?\s*(\d{3,})/i);
+      var order = text.match(/order\s*(?:number|no\.?)?\s*:?\s*#?\s*(\d{3,})/i);
       field("Order number", order ? order[1] : null);
       var total = labeledAmount(text, "Total charged") || labeledAmount(text, "Total") ||
         labeledAmount(text, "Amount charged") || labeledAmount(text, "Amount");
