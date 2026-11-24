@@ -69,10 +69,14 @@
     }
 
     if (doc.kind === "medicare") {
+      var coverage = fieldValue(extracted, "Coverage change");
+      var premium = fieldValue(extracted, "New monthly premium");
       return {
-        whatItIs: "A Medicare Summary Notice. It's about a change coming to your coverage. Next year the plan pays for 12 home health aide visits instead of 20. Physical therapy stays the same. The new premium is $184.60 a month.",
+        whatItIs: "A Medicare Summary Notice. It's about a change coming to your coverage." +
+          (coverage ? " " + coverage + "." : "") +
+          (premium ? " The new monthly premium is " + premium + "." : ""),
         whatMatters: [
-          "Only the aide visits are cut. Therapy isn't touched.",
+          coverage ? "The change above is the one to weigh against what you use now." : "Read the change in the letter against what you use now.",
           "If you use those visits, you can appeal, or look at other plans before the deadline.",
           "This letter isn't a bill. You don't owe anything because it arrived."
         ],
@@ -94,11 +98,16 @@
     }
 
     if (doc.kind === "irs") {
+      var taxYear = fieldValue(extracted, "Tax year");
+      var income = fieldValue(extracted, "Income reported by a payer");
+      var proposedDue = fieldValue(extracted, "Proposed amount due");
       return {
-        whatItIs: "An IRS notice called a CP2000. It isn't a bill, and it isn't an audit. A bank told the IRS you earned $1,912 in interest that isn't on your 2024 return. The IRS thinks that means $1,284.00 more in tax.",
+        whatItIs: "An IRS notice called a CP2000. It isn't a bill, and it isn't an audit." +
+          (income ? " A bank told the IRS you earned " + income + " in interest that isn't on your " + (taxYear || "filed") + " return." : "") +
+          (proposedDue ? " The IRS thinks that means " + proposedDue + " more in tax." : ""),
         whatMatters: [
           "Nothing is final yet. You can agree with all of it, part of it, or none of it.",
-          "Check your own 2024 bank statements against the $1,912 before you answer.",
+          "Check your own " + (taxYear ? taxYear + " " : "") + "bank statements against the " + (income || "amount the notice names") + " before you answer.",
           "Ignore it, though, and the change becomes final. Then it's a real bill, with interest."
         ],
         deadlineLine: deadline ? "Your response has to reach the IRS by " + deadline + "." : "No response date turned up in this notice.",
@@ -122,14 +131,23 @@
 
     if (doc.kind === "vet") {
       var given = fieldValue(extracted, "Rabies vaccination given");
+      var pet = fieldValue(extracted, "Pet");
+      var totalPaid = fieldValue(extracted, "Total paid");
+      var rabiesYears = null;
+      (extracted.fields || []).forEach(function (f) {
+        var ym = /given \+ (\d+) years?\)/.exec(f.label);
+        if (ym) rabiesYears = ym[1];
+      });
       return {
-        whatItIs: "Biscuit's vet visit, written up as a summary and invoice. Wellness exam, nail trim, and the $72.50 bill is paid. The part worth keeping is the rabies record: when the last shot was given, so the next due date can be worked out.",
+        whatItIs: (pet ? pet + "'s" : "Your pet's") + " vet visit, written up as a summary and invoice." +
+          (totalPaid ? " The " + totalPaid + " bill is paid." : "") +
+          " The part worth keeping is the rabies record: when the last shot was given, so the next due date can be worked out.",
         whatMatters: [
           "Last rabies shot: " + (given || "see record") + ".",
-          "Rabies shots last 3 years. The next one is due on the date below.",
-          "Let it lapse and there can be fines. Worse if Biscuit ever nips somebody."
+          "Rabies shots last " + (rabiesYears ? rabiesYears + (rabiesYears === "1" ? " year" : " years") : "the number of years on the record") + ". The next one is due on the date below.",
+          "Let it lapse and there can be fines. Worse if " + (pet || "your pet") + " ever nips somebody."
         ],
-        deadlineLine: deadline ? "Biscuit's next rabies shot is due by " + deadline + "." : "No due date could be worked out from this record.",
+        deadlineLine: deadline ? (pet ? pet + "'s next rabies shot is due by " + deadline + "." : "The next rabies shot is due by " + deadline + ".") : "No due date could be worked out from this record.",
         steps: [
           "Nothing to do today.",
           "Book it a few weeks ahead of the date. Clinics fill up."
@@ -146,8 +164,10 @@
 
     if (doc.kind === "auto") {
       var nextMiles = fieldValue(extracted, "Next service mileage");
+      var vehicle = fieldValue(extracted, "Vehicle");
+      var autoTotal = fieldValue(extracted, "Total");
       return {
-        whatItIs: "Receipt for an oil change and tire rotation on the 2018 Toyota RAV4. Done and paid, $94.18. What's worth saving is the service interval: when the next one comes due, by date and by mileage.",
+        whatItIs: "A service receipt" + (vehicle ? " for the " + vehicle : "") + ". Done and paid" + (autoTotal ? ", " + autoTotal : "") + ". What's worth saving is the service interval: when the next one comes due, by date and by mileage.",
         whatMatters: [
           "Next service: the date below, or " + (nextMiles || "the mileage on the receipt") + ", whichever comes first.",
           "Skipping oil changes is how engines wear out early."
@@ -202,11 +222,12 @@
 
     // utility
     var amount = fieldValue(extracted, "Amount due");
+    var usage = fieldValue(extracted, "Usage");
     return {
-      whatItIs: "Your electric bill. " + (amount || "The amount is on the bill") + " due, for 1,084 kWh this period. Last month was paid off, so this is just this month.",
+      whatItIs: "Your electric bill. " + (amount || "The amount is on the bill") + " due" + (usage ? ", for " + usage + " this period." : "."),
       whatMatters: [
-        "Pay by the due date and there's no $6.00 late fee.",
-        "It's in line with a normal month. Last month's payment was $118.22."
+        "Pay by the due date to avoid any late fee.",
+        "If the amount looks wrong to you, call the number on the bill and ask before you pay."
       ],
       deadlineLine: deadline ? "Due by " + deadline + "." : "No due date turned up on this bill.",
       steps: [
@@ -216,7 +237,7 @@
       scam: {
         title: "Watch for the fake version",
         points: [
-          "The bill shows the period, the usage, and a last payment that matches your records.",
+          "The bill shows the period and the usage for your service address.",
           "Shutoff scams are common. Your co-op won't demand payment within the hour on a prepaid card. If a caller does, hang up and call the number on this bill."
         ]
       }

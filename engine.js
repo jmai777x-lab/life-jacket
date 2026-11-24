@@ -22,19 +22,57 @@
   var D = window.LJ_DATA;
   var DATE_RE = /[A-Z][a-z]+ \d{1,2}, \d{4}/g;
 
+  var MONTH_INDEX = {
+    january: 0, february: 1, march: 2, april: 3, may: 4, june: 5,
+    july: 6, august: 7, september: 8, october: 9, november: 10, december: 11
+  };
+
+  // Parse "December 4, 2026" strictly: the components must survive
+  // the round trip, so an impossible date a document happens to
+  // print ("February 30, 2026") is read as no date at all instead
+  // of silently becoming a different day on the calendar.
+  // (Strictness added 2026-11-24; the loose parse rolled invalid
+  // dates over into the next month.)
   function parseLongDate(text) {
-    var d = new Date(text + " 12:00:00");
-    return isNaN(d.getTime()) ? null : d;
+    var m = /^([A-Za-z]+) (\d{1,2}), (\d{4})$/.exec(text);
+    if (!m) return null;
+    var mon = MONTH_INDEX[m[1].toLowerCase()];
+    if (mon === undefined) return null;
+    var day = parseInt(m[2], 10), year = parseInt(m[3], 10);
+    var d = new Date(year, mon, day, 12, 0, 0);
+    if (d.getFullYear() !== year || d.getMonth() !== mon || d.getDate() !== day) return null;
+    return d;
+  }
+
+  // Parse "12/27/2026" (month/day/year, four-digit year only), with
+  // the same strictness. Returns null for anything else.
+  function parseSlashDate(text) {
+    var m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(text);
+    if (!m) return null;
+    var mon = parseInt(m[1], 10) - 1, day = parseInt(m[2], 10), year = parseInt(m[3], 10);
+    if (mon < 0 || mon > 11) return null;
+    var d = new Date(year, mon, day, 12, 0, 0);
+    if (d.getFullYear() !== year || d.getMonth() !== mon || d.getDate() !== day) return null;
+    return d;
+  }
+
+  function parseAnyDate(text) {
+    return text.indexOf("/") >= 0 ? parseSlashDate(text) : parseLongDate(text);
   }
 
   function labeledDate(text, label) {
-    var re = new RegExp(label + "\\s*[:]?\\s*([A-Z][a-z]+ \\d{1,2}, \\d{4})", "i");
+    var re = new RegExp(label + "\\s*[:]?\\s*([A-Z][a-z]+ \\d{1,2}, \\d{4}|\\d{1,2}/\\d{1,2}/\\d{4})", "i");
     var m = text.match(re);
-    return m ? parseLongDate(m[1]) : null;
+    return m ? parseAnyDate(m[1]) : null;
   }
 
   function labeledAmount(text, label) {
-    var re = new RegExp(label + "\\s*[:]?\\s*(\\$[\\d,]+\\.\\d{2})", "i");
+    // Cents are optional: a bill that writes "Amount due: $200"
+    // still has an amount due. A "will be" between the label and
+    // the amount is allowed too: the seeded Medicare notice writes
+    // "Your new monthly premium will be $184.60", and its own
+    // premium went unextracted without it. (Loosened 2026-11-24.)
+    var re = new RegExp(label + "\\s*[:]?\\s*(?:will be\\s*)?(\\$[\\d,]+(?:\\.\\d{2})?)", "i");
     var m = text.match(re);
     return m ? m[1] : null;
   }
@@ -137,17 +175,59 @@
     collect("Link with a private token", /https?:\/\/[^\s]+/g);
     collect("Email address", /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g);
     collect("Medicare number", /\b[1-9][A-Z][A-Z0-9][0-9]-[A-Z][A-Z0-9][0-9]-[A-Z][A-Z0-9][0-9][0-9]\b/g);
-    collect("Social Security number", /\b\d{3}-\d{2}-\d{4}\b/g);
-    // 12 to 19 digits: account numbers on bills run shorter than
-    // card numbers, and the seeded utility bill's own 12-digit
-    // account number must be covered. (Widened 2026-11-22; the old
-    // lower bound of 13 let 12-digit account numbers through.)
-    collect("Card or account number", /\b(?:\d[ -]?){11,18}\d\b/g);
-    collect("Phone number", /(?:\+?1[-. ]?)?\(?\d{3}\)?[-. ]\d{3}[-. ]\d{4}/g);
+    // Dashes, spaces, or a line break between the groups: letters
+    // write the number all three ways. (Widened 2026-11-24; the
+    // dashed-only rule let the spaced form through.)
+    collect("Social Security number", /\b\d{3}[-\s]\d{2}[-\s]?\s?\d{4}\b/g);
+    // 12 or more digits, no upper bound: account numbers on bills
+    // run shorter than card numbers, and the seeded utility bill's
+    // own 12-digit account number must be covered. (Lower bound
+    // widened 2026-11-22; the old upper bound of 19 let a 20-digit
+    // run through whole or left its tail uncovered, and the
+    // separator now includes a line break, for numbers a letter
+    // wraps across two lines. Both fixed 2026-11-24.)
+    collect("Card or account number", /\b(?:\d[ \n-]?){11,}\d\b/g);
 
-    // Date of birth: cover the date itself when it follows the label.
+    // Labeled numbers: a digit run of 7 or more that follows an
+    // account-style label is an identifier even when it is too
+    // short for the free-standing rule above. Utility and policy
+    // account numbers run 8-11 digits, and a 9-digit Social
+    // Security number is often written with no dashes at all.
+    // The label is the anchor, so order and tracking numbers in
+    // running text stay uncovered. Only the number is spanned,
+    // never the label. (Added 2026-11-24.)
     (function () {
-      var re = /(date of birth\s*[:]\s*)([A-Z][a-z]+ \d{1,2}, \d{4})/gi;
+      var digitRun = "(\\d(?:[ \\n-]?\\d){6,23})";
+      var rules = [
+        { kind: "Social Security number",
+          re: new RegExp("(?:social\\s+security)\\s*(?:number)?\\s*(?:on\\s+file)?\\s*(?:is)?\\s*[:#]?\\s*" + digitRun, "gi") },
+        { kind: "Card or account number",
+          re: new RegExp("(?:account|acct|member|policy|confirmation|reference)\\s*(?:number|no\\.?|id|#)?\\s*(?:on\\s+file)?\\s*(?:is)?\\s*[:#]?\\s*" + digitRun, "gi") },
+        { kind: "Member or policy ID",
+          re: /(?:member|policy)\s*(?:id|number|no\.?)\s*[:#]?\s*([A-Za-z0-9][A-Za-z0-9-]{5,})/gi }
+      ];
+      rules.forEach(function (rule) {
+        var m;
+        while ((m = rule.re.exec(text)) !== null) {
+          var start = m.index + m[0].length - m[1].length;
+          spans.push({ start: start, end: start + m[1].length, kind: rule.kind, text: m[1] });
+          if (m[1].length === 0) rule.re.lastIndex++;
+        }
+      });
+    })();
+
+    // Separators are optional and may be a line break, so the
+    // unbroken 10-digit form and "(555)014-2288" are covered too.
+    // (Widened 2026-11-24; both forms leaked before.)
+    collect("Phone number", /(?:\+?1[-. ]?)?\(?\d{3}\)?[-. ]?\s?\d{3}[-. ]?\s?\d{4}/g);
+
+    // Date of birth: cover the date itself when it follows the
+    // label, in long form or numeric form, under any of the
+    // labels real letters use. (Widened 2026-11-24; only the
+    // exact label "date of birth:" with a long-form date was
+    // covered before, so "DOB: 04/12/1948" leaked.)
+    (function () {
+      var re = /((?:date of birth|dob|born)\s*:\s*)((?:[A-Z][a-z]+ \d{1,2}, \d{4})|(?:\d{1,2}\/\d{1,2}\/\d{4}))/gi;
       var m;
       while ((m = re.exec(text)) !== null) {
         var start = m.index + m[1].length;
@@ -155,12 +235,20 @@
       }
     })();
 
+    // A PO Box is an address with no street suffix, so the street
+    // rule below never sees it. (Added 2026-11-24.)
     collect("Street address",
-      /\b\d{1,5}\s+(?:[A-Z][A-Za-z']+\s+){0,3}(?:Street|St|Avenue|Ave|Road|Rd|Lane|Ln|Drive|Dr|Court|Ct|Boulevard|Blvd|Way|Trail)\.?(?:,\s*[A-Z][a-zA-Z]+,\s*[A-Z]{2}\s*\d{5}(?:-\d{4})?)?/g);
+      /\bP\.?O\.?\s+Box\s+\d+(?:,\s*[A-Z][a-zA-Z]+,\s*[A-Z]{2}\s*\d{5}(?:-\d{4})?)?/gi);
 
-    // The person's full name, in every written form the document uses.
+    collect("Street address",
+      /\b\d{1,5}\s+(?:[A-Z][A-Za-z']+\s+){0,3}(?:Street|St|Avenue|Ave|Road|Rd|Lane|Ln|Drive|Dr|Court|Ct|Boulevard|Blvd|Way|Trail)\.?(?:,\s*(?:Apt\.?|Apartment|Suite|Ste\.?|Unit)\s+[A-Za-z0-9-]+)?(?:,\s*[A-Z][a-zA-Z]+,\s*[A-Z]{2}\s*\d{5}(?:-\d{4})?)?/g);
+
+    // The person's full name, in every written form the document
+    // uses. A multi-word name is matched without regard to case,
+    // so a letter that writes it in lowercase is still covered.
+    // (Case loosened 2026-11-24.)
     (doc.nameVariants || []).forEach(function (variant) {
-      collect("Full name", new RegExp(escapeRegExp(variant), "g"));
+      collect("Full name", new RegExp(escapeRegExp(variant), variant.indexOf(" ") >= 0 ? "gi" : "g"));
     });
 
     // Resolve overlaps: sort by start, then by longer span first,
@@ -323,7 +411,7 @@
       field("Document type", "Utility bill (electric)");
       var amountDue = labeledAmount(text, "Amount due");
       field("Amount due", amountDue);
-      var due = labeledDate(text, "Due date");
+      var due = labeledDate(text, "Due date") || labeledDate(text, "Due");
       field("Due date", due ? D.fmtLong(due) : null);
       var usage = text.match(/Usage this period:\s*([\d,]+ kWh)/i);
       field("Usage", usage ? usage[1] : null);
@@ -406,9 +494,9 @@
     var seenDates = {};
     var added = 0;
     text.split("\n").forEach(function (line) {
-      var m = line.match(/[A-Z][a-z]+ \d{1,2}, \d{4}/);
+      var m = line.match(/[A-Z][a-z]+ \d{1,2}, \d{4}/) || line.match(/\d{1,2}\/\d{1,2}\/\d{4}/);
       if (m && cues.test(line)) {
-        var date = parseLongDate(m[0]);
+        var date = parseAnyDate(m[0]);
         if (date && !seenDates[D.isoDay(date)]) {
           seenDates[D.isoDay(date)] = true;
           added++;
