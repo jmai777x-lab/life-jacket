@@ -18,6 +18,7 @@
   var D = window.LJ_DATA;
   var E = window.LJ_ENGINE;
   var C = window.LJ_CLOUD;
+  var S = window.LJ_SCAMCHECK;
   var STORE_KEY = "lifejacket.v1";
 
   // ---------- state ----------
@@ -78,6 +79,15 @@
   // own screen so they can line a page up; nothing is kept from
   // the preview itself.
   var screenSession = null;  // { stream, pages: [{text, coveredCount, kinds}] }
+
+  // ---------- message checker session state ----------
+  // Memory only, like the screen session. A checked message is
+  // not a document: it is never written to localStorage, never
+  // added to the inbox, and the check itself makes no network
+  // call. What is kept, while the inbox is on screen, is the
+  // pasted text and the checker's result, so a re-render does
+  // not lose them.
+  var scamState = null;  // { text, result }
 
   function save() {
     try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (err) {}
@@ -225,6 +235,7 @@
     });
     var html = '<h2 class="view-title">Your inbox</h2>' +
       '<p class="view-sub">Everything that arrived, waiting to be kept. Open one and Life Jacket reads it here on this device first.</p>';
+    html += scamCardHtml();
     html += '<div class="card intake"><h3 style="margin-top:0;font-size:24px;">Add from a text</h3>' +
       '<p class="step-note" style="color:var(--ink-soft);margin:0 0 12px;">Not everything arrives by email. Some receipts come as a text. On your phone, open the text, press and hold to copy it, then paste the whole message here. Got a screenshot instead? Type or paste what it says. It gets read on this device first, same as everything else.</p>' +
       '<textarea id="text-intake" rows="6" placeholder="Paste the text message here"></textarea>' +
@@ -432,6 +443,36 @@
         '<p class="view-sub">The exported file imports into Samsung and Google Calendar, Apple Calendar, and Microsoft Outlook, so these dates roll into the calendar you already use.</p>';
     }
     return html;
+  }
+
+  // ---------- message checker ("Check a message") ----------
+
+  function scamResultHtml() {
+    if (!scamState) return "";
+    var res = scamState.result;
+    var html = '<div class="scam-result">' +
+      '<h4 class="scam-verdict' + (res.verdict === "flags" ? " flags" : "") + '">' +
+      esc(res.verdictText) + '</h4>';
+    res.findings.forEach(function (f) {
+      html += '<div class="scam-flag"><div class="lever">' + esc(f.leverName) + '</div>' +
+        '<p style="margin:6px 0;">' + esc(f.explanation) + '</p>' +
+        '<p class="snippet" style="margin:6px 0;">The words that tripped it: "' +
+        esc(f.snippet) + '"</p></div>';
+    });
+    html += '<p class="step-note" style="color:var(--ink-soft);">' + esc(res.standingLine) + '</p>' +
+      '<h4 style="margin:14px 0 6px;font-size:21px;">What to do instead</h4><ul>' +
+      res.whatToDo.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join("") + '</ul></div>';
+    return html;
+  }
+
+  function scamCardHtml() {
+    var html = '<div class="card intake"><h3 style="margin-top:0;font-size:24px;">Check a message</h3>' +
+      '<p class="step-note" style="color:var(--ink-soft);margin:0 0 12px;">Got a text, an email, a job offer, or an ad that feels off? Paste the whole message here. Life Jacket reads it on this device, looking for the tricks scammers use: pressure, secrecy, gift cards, borrowed names, and requests for passwords and codes. Nothing is sent anywhere, and the message is not kept.</p>' +
+      '<textarea id="scam-intake" rows="6" placeholder="Paste the message here">' +
+      (scamState ? esc(scamState.text) : "") + '</textarea>' +
+      '<p style="margin:12px 0 0;"><button class="btn" data-action="check-message">Check this message</button></p>';
+    html += scamResultHtml();
+    return html + '</div>';
   }
 
   // ---------- screen share intake ----------
@@ -758,6 +799,12 @@
       currentDocId = newDoc.id;
       view = "doc";
       render();
+    } else if (action === "check-message") {
+      var sbox = document.getElementById("scam-intake");
+      var stext = sbox ? sbox.value.trim() : "";
+      if (!stext) { if (sbox) sbox.focus(); return; }
+      scamState = { text: stext, result: S.checkMessage(stext) };
+      render();
     } else if (action === "screen-start") {
       doScreenStart(t);
     } else if (action === "screen-capture") {
@@ -776,6 +823,7 @@
     } else if (action === "reset-demo") {
       stopScreenStream();
       screenSession = null;
+      scamState = null;
       try { localStorage.removeItem(STORE_KEY); } catch (err) {}
       state = loadState();
       idCache = {};

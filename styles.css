@@ -287,6 +287,22 @@ ul.cover-list .shows { color: var(--ink-soft); font-family: "Courier New", monos
   margin-top: 16px;
 }
 
+/* ----- message checker ("Check a message") ----- */
+
+.scam-result { margin-top: 16px; border-top: 2px solid var(--line); padding-top: 14px; }
+.scam-verdict { font-size: 25px; margin: 0 0 8px; }
+.scam-verdict.flags { color: var(--accent-dark); }
+.scam-flag {
+  background: var(--warn-bg);
+  border: 1px solid var(--warn-line);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin: 10px 0;
+}
+.scam-flag .lever { font-weight: bold; font-size: 21px; }
+.scam-flag .snippet { font-style: italic; color: var(--ink-soft); }
+.scam-result ul { margin: 6px 0; padding-left: 24px; }
+
 /* ----- shelves ----- */
 
 .shelf-head { display: flex; align-items: baseline; gap: 14px; margin: 26px 0 10px; }
